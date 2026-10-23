@@ -51,6 +51,14 @@ class Product extends Model
     }
 
     /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    /**
      * Get the seller that owns this product.
      */
     public function seller(): BelongsTo
