@@ -9,7 +9,7 @@ Backend RESTful API untuk platform **B2B Marketplace Pedagang Pasar**, yang menj
 | Layer | Teknologi |
 |---|---|
 | Backend Framework | Laravel 11 (PHP 8.3) |
-| Database | MySQL |
+| Database | PostgreSQL |
 | Autentikasi | Laravel Sanctum (Bearer Token) |
 | Frontend (terpisah) | Next.js |
 
@@ -25,9 +25,9 @@ Backend RESTful API untuk platform **B2B Marketplace Pedagang Pasar**, yang menj
 
 ## Persyaratan
 
-- PHP 8.3+
+- PHP 8.3+ (dengan ekstensi `pdo_pgsql` aktif)
 - Composer
-- MySQL 8+
+- PostgreSQL 14+
 
 ---
 
@@ -40,22 +40,28 @@ cd api-makar
 composer install
 ```
 
-**2. Setup Environment**
+**2. Setup Database & Environment**
+Pastikan database `api_makar` sudah dibuat di PostgreSQL:
+```sql
+CREATE DATABASE api_makar;
+```
+
+Salin file environment:
 ```bash
 cp .env.example .env
 php artisan key:generate
 ```
 
-Edit file `.env` dan isi konfigurasi database:
+Edit file `.env` dan sesuaikan konfigurasi PostgreSQL:
 ```env
 APP_URL=http://localhost:8000
 
-DB_CONNECTION=mysql
+DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=3306
+DB_PORT=5432
 DB_DATABASE=api_makar
-DB_USERNAME=root
-DB_PASSWORD=
+DB_USERNAME=postgres
+DB_PASSWORD=password_postgres_kamu
 ```
 
 **3. Migrasi & Seed Database**
@@ -154,7 +160,29 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
 ---
 
-## Referensi API Endpoint
+## Ringkasan Seluruh API Endpoint (Quick Reference)
+
+Tabel berikut merangkum seluruh endpoint API yang telah selesai dibuat dan siap digunakan oleh tim Frontend:
+
+| Modul | Method | Endpoint | Akses / Auth | Deskripsi Singkat | Status Sukses |
+|---|:---:|---|:---:|---|:---:|
+| **Auth** | `POST` | `/api/auth/register` | Publik | Registrasi akun pedagang (Seller/Buyer) & profil kios | `201 Created` |
+| **Auth** | `POST` | `/api/auth/login` | Publik | Login menggunakan nomor HP & password | `200 OK` |
+| **Auth** | `GET` | `/api/auth/me` | 🔒 Token (Semua Role) | Ambil info akun & toko user yang sedang login | `200 OK` |
+| **Auth** | `POST` | `/api/auth/logout` | 🔒 Token (Semua Role) | Logout & mencabut token akses aktif | `200 OK` |
+| **Kategori** | `GET` | `/api/categories` | Publik | Daftar kategori komoditas beserta jumlah produk aktif | `200 OK` |
+| **Produk** | `GET` | `/api/products` | Publik | Katalog etalase (filter kategori, search, sort, pagination) | `200 OK` |
+| **Produk** | `GET` | `/api/products/{slug}` | Publik | Detail lengkap komoditas berdasarkan slug | `200 OK` |
+| **Produk (Seller)** | `GET` | `/api/seller/products` | 🔒 Token (Role: `seller`) | Daftar seluruh produk milik seller yang login | `200 OK` |
+| **Produk (Seller)** | `POST` | `/api/products` | 🔒 Token (Role: `seller`) | Tambah produk baru ke kios seller | `201 Created` |
+| **Produk (Seller)** | `PUT` | `/api/products/{slug}` | 🔒 Token (Role: `seller`, Pemilik) | Update nama, harga, stok, atau status produk | `200 OK` |
+| **Produk (Seller)** | `DELETE` | `/api/products/{slug}` | 🔒 Token (Role: `seller`, Pemilik) | Hapus produk dari kios (soft delete) | `204 No Content` |
+
+> 🔒 **Catatan Auth:** Endpoint dengan ikon gembok membutuhkan header `Authorization: Bearer {token}`.
+
+---
+
+## Referensi API Endpoint (Detail Payload & Response)
 
 ### Autentikasi — `/api/auth`
 
