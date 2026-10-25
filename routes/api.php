@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Resources\UserResource;
@@ -31,6 +32,15 @@ Route::middleware(['auth:sanctum', 'role:seller'])->group(function () {
     Route::post('products', [ProductController::class, 'store']);
     Route::put('products/{product:slug}', [ProductController::class, 'update']);
     Route::delete('products/{product:slug}', [ProductController::class, 'destroy']);
+});
+
+// Cart Routes (Protected - Buyer & Admin)
+Route::middleware(['auth:sanctum', 'role:buyer,admin'])->group(function () {
+    Route::get('cart', [CartController::class, 'index']);
+    Route::post('cart', [CartController::class, 'store']);
+    Route::delete('cart', [CartController::class, 'clear']);
+    Route::put('cart/{cart}', [CartController::class, 'update']);
+    Route::delete('cart/{cart}', [CartController::class, 'destroy']);
 });
 
 Route::get('/user', function (Request $request) {
