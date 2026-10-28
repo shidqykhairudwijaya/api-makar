@@ -1,485 +1,272 @@
-# api-makar — B2B Marketplace API
+# 🛒 Makar API — B2B Wholesale Market Platform
 
-Backend RESTful API untuk platform **B2B Marketplace Pedagang Pasar**, yang menjembatani **Pedagang Pasar Induk (Seller)** dengan **Pedagang Pasar Kecil (Buyer)**. Pengiriman dan penjemputan barang dikelola oleh **Tim Operasional (Admin/Courier)**.
+[![Laravel](https://img.shields.io/badge/Laravel-13.x-FF2D20?style=for-the-badge&logo=laravel)](https://laravel.com)
+[![PHP](https://img.shields.io/badge/PHP-8.3-777BB4?style=for-the-badge&logo=php)](https://php.net)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
+[![Sanctum](https://img.shields.io/badge/Auth-Sanctum-F55247?style=for-the-badge)](https://laravel.com/docs/sanctum)
+[![Tests](https://img.shields.io/badge/Tests-110%20Passed-success?style=for-the-badge&logo=phpunit)](https://phpunit.de)
+[![Code Style](https://img.shields.io/badge/Code%20Style-Pint-blue?style=for-the-badge)](https://laravel.com/docs/pint)
 
----
-
-## Tech Stack
-
-| Layer | Teknologi |
-|---|---|
-| Backend Framework | Laravel 11 (PHP 8.3) |
-| Database | PostgreSQL |
-| Autentikasi | Laravel Sanctum (Bearer Token) |
-| Frontend (terpisah) | Next.js |
+RESTful API Backend untuk platform **B2B Marketplace Grosir Pasar**, yang menjembatani **Pedagang Pasar Induk (Seller)** dengan **Pedagang Pasar Kecil / Warung Sayur (Buyer)**. Seluruh penjemputan barang fisik dari kios pasar induk dan pengantaran ke warung dikelola oleh **Tim Operasional Lapangan (Admin & Courier)**.
 
 ---
 
-## Status Test Suite
-
-```
-✅  35 Tests Passed — 182 Assertions
-```
-
----
-
-## Persyaratan
-
-- PHP 8.3+ (dengan ekstensi `pdo_pgsql` aktif)
-- Composer
-- PostgreSQL 14+
+## 📑 Daftar Isi
+- [Arsitektur & Aktor Sistem](#-arsitektur--aktor-sistem)
+- [Fitur Utama & Alur Bisnis](#-fitur-utama--alur-bisnis)
+- [Tech Stack & Dependensi](#-tech-stack--dependensi)
+- [Instalasi & Panduan Menjalankan](#-instalasi--panduan-menjalankan)
+- [Akun Demo Uji Coba](#-akun-demo-uji-coba)
+- [Dokumentasi Postman](#-dokumentasi-postman)
+- [Katalog Endpoint API (43 Endpoints)](#-katalog-endpoint-api-43-endpoints)
+- [Lifecycle & State Machine Pesanan](#-lifecycle--state-machine-pesanan)
+- [Pengujian & Jaminan Mutu](#-pengujian--jaminan-mutu)
 
 ---
 
-## Cara Menjalankan Proyek
+## 👥 Arsitektur & Aktor Sistem
 
-**1. Clone & Install Dependensi**
+Sistem membagi operasional menjadi 4 peran (*Role*):
+
+| Role | Nama Peran | Tugas & Hak Akses Utama |
+|---|---|---|
+| **`seller`** | Pedagang Pasar Induk | Mengelola kios/blok pasar, menerbitkan katalog grosir (`kg`, `ikat`, `karung`, `peti`), mengelola batas `min_order` dan stok, memantau antrean persiapan barang (`incoming-items`). |
+| **`buyer`** | Pedagang Warung / Pasar Kecil | Menjelajah katalog, mengelola keranjang grosir, checkout multi-vendor pasar induk, membatalkan order pending, membayar via transfer atau COD. |
+| **`courier`** | Kurir Lapangan Pasar | Mengklaim penugasan order, melihat rute nomor blok/kios Pasar Induk, memvalidasi fisik barang per kios (`picked_up` / `out_of_stock`), mengantar hingga tuntas (`in_transit` $\rightarrow$ `completed`). |
+| **`admin`** | Tim Operasional Pasar | Memverifikasi transfer bank, mengawasi seluruh transaksi pasar, menugaskan kurir manual (*dispatching*), pembatalan darurat, mengaktifkan/menonaktifkan akun pedagang & kurir. |
+
+---
+
+## 🚀 Fitur Utama & Alur Bisnis
+
+1. **Multi-Vendor Atomic Checkout**:
+   - Pembeli dapat memesan barang dari aneka kios Pasar Induk sekaligus dalam satu transaksi.
+   - Menggunakan `DB::transaction` untuk menjamin konsistensi ACID: pemotongan stok otomatis, pembersihan keranjang, dan penguncian harga beli (*snapshot* harga, nama, dan satuan komoditas).
+2. **Snapshot Alamat & Koordinat GPS**:
+   - Alamat pengiriman dikunci ke dalam `delivery_address_snapshot` pada saat order dibuat, baik mengambil dari profil toko pembeli maupun input override.
+3. **Penyelesaian Otomatis COD**:
+   - Jika order menggunakan metode COD (*Cash on Delivery*), saat kurir menyelesaikan pengantaran ke pembeli (`status = completed`), sistem otomatis menandai status pembayaran menjadi `paid`.
+4. **Restorasi Stok Otomatis**:
+   - Pembatalan pesanan (oleh Buyer pada status `pending` atau oleh Admin) otomatis mengembalikan kuantitas stok komoditas ke lapak masing-masing penjual.
+5. **Auto-Revoke Session Security**:
+   - Saat Admin menonaktifkan akun (`is_active = false`), seluruh token aktif Laravel Sanctum milik akun tersebut langsung dicabut seketika.
+
+---
+
+## 🛠 Tech Stack & Dependensi
+
+- **Framework**: Laravel 13.x (PHP 8.3+)
+- **Database**: PostgreSQL 14+ (Produksi & Lokal) / SQLite In-Memory (Automated Testing)
+- **Autentikasi**: Laravel Sanctum (Token-based SPA & Mobile API)
+- **Formatting**: Laravel Pint (PSR-12 Standard)
+- **Testing**: PHPUnit 12
+
+---
+
+## 💻 Instalasi & Panduan Menjalankan
+
+### 1. Persyaratan Sistem
+- PHP 8.3 atau lebih baru dengan ekstensi aktif:
+  `pdo_pgsql`, `pgsql`, `fileinfo`, `zip`, `mbstring`, `openssl`, `curl`, `intl`, `gd`
+- Composer 2.x
+- PostgreSQL server
+
+### 2. Setup Proyek
 ```bash
-git clone <repo-url>
+# Clone repository
+git clone <repository-url>
 cd api-makar
+
+# Pasang dependensi
 composer install
-```
 
-**2. Setup Database & Environment**
-Pastikan database `api_makar` sudah dibuat di PostgreSQL:
-```sql
-CREATE DATABASE api_makar;
-```
-
-Salin file environment:
-```bash
+# Siapkan file environment
 cp .env.example .env
+
+# Generate Application Encryption Key
 php artisan key:generate
 ```
 
-Edit file `.env` dan sesuaikan konfigurasi PostgreSQL:
+### 3. Konfigurasi Database PostgreSQL
+Sesuaikan koneksi PostgreSQL pada file `.env`:
 ```env
-APP_URL=http://localhost:8000
-
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_DATABASE=api_makar
 DB_USERNAME=postgres
-DB_PASSWORD=password_postgres_kamu
+DB_PASSWORD=secret
 ```
 
-**3. Migrasi & Seed Database**
+### 4. Migrasi, Seeding & Storage Link
 ```bash
+# Jalankan migrasi tabel
 php artisan migrate
-# Opsional: isi data contoh
+
+# Isi data awal kategori, kios pasar induk, warung, dan kurir
 php artisan db:seed
+
+# Hubungkan symlink storage publik (untuk foto komoditas & bukti transfer)
+php artisan storage:link
 ```
 
-**4. Jalankan Server**
+### 5. Jalankan Server Lokal
 ```bash
 php artisan serve
 ```
-
-Server berjalan di: `http://localhost:8000`
-
----
-
-## Struktur Database
-
-Aplikasi ini memiliki 8 tabel utama:
-
-```
-users                → Akun semua pengguna (admin, seller, buyer, courier)
-user_profiles        → Profil toko/kios pedagang
-categories           → Kategori komoditas (Sayuran, Bumbu, Daging, dll.)
-products             → Produk/komoditas yang dijual seller
-carts                → Keranjang belanja buyer (belum di-checkout)
-orders               → Pesanan yang sudah diproses
-order_items          → Rincian item per pesanan
-payments             → Catatan pembayaran manual / COD
-```
+Server berjalan di: `http://localhost:8000` (Base API: `http://localhost:8000/api`)
 
 ---
 
-## Panduan Integrasi Frontend (Next.js)
+## 🔑 Akun Demo Uji Coba
 
-### Base URL & Header Wajib
+Data uji coba telah terpasang otomatis melalui database seeder:
 
-```
-Base URL : http://localhost:8000/api
-```
+| Role | Nomor HP | Password | Identitas Toko / Lokasi Pasar |
+|---|---|---|---|
+| **`buyer`** | `081300000001` | `password123` | Kios Sayur Bu Dewi (Pasar Minggu, Lantai Dasar No. 12) |
+| **`seller`** | `081200000001` | `password123` | UD Berkah Cabai Segar (Pasar Induk Kramat Jati, Blok B-1 No. 45-48) |
+| **`courier`** | `081400000001` | `password123` | Bambang Kurir Lapangan Pasar |
+| **`admin`** | `081100000001` | `password123` | Tim Operasional Pasar Makar |
 
-Setiap request **wajib** menyertakan header berikut:
+---
+
+## 📬 Dokumentasi Postman
+
+Telah disediakan file koleksi Postman siap pakai di root proyek:
+📁 **[`postman_collection.json`](./postman_collection.json)**
+
+### Cara Import:
+1. Buka aplikasi **Postman** (atau ekstensi *Thunder Client* di VS Code).
+2. Klik **Import** $\rightarrow$ pilih file `postman_collection.json`.
+3. Jalankan request **`POST Login (Auto-Save Token)`** $\rightarrow$ token otomatis disimpan ke variabel `{{token}}`. Seluruh request berikutnya otomatis terautentikasi!
+
+---
+
+## 📖 Katalog Endpoint API (43 Endpoints)
+
+Header wajib pada setiap request:
 ```http
 Accept: application/json
 Content-Type: application/json
+Authorization: Bearer {{token}}  <-- untuk endpoint protected
 ```
 
-> **Penting:** Header `Accept: application/json` memastikan semua respons error (validasi, unauthenticated, dsb.) dikembalikan dalam format JSON, bukan HTML.
+### 1. Autentikasi & Profil (`/api/auth`, `/api/profile`)
+| Method | Endpoint | Hak Akses | Deskripsi |
+|:---:|---|:---:|---|
+| `POST` | `/api/auth/register` | Publik | Registrasi akun baru (Seller / Buyer) beserta profil lapak |
+| `POST` | `/api/auth/login` | Publik | Login via nomor HP & password (mengembalikan token Sanctum) |
+| `POST` | `/api/auth/logout` | 🔒 Token | Logout dan mencabut token aktif |
+| `GET` | `/api/auth/me` | 🔒 Token | Mengambil data akun dan profil user yang sedang aktif |
+| `GET` | `/api/profile` | 🔒 Token | Mengambil profil lapak, nomor HP, alamat, dan titik koordinat |
+| `PUT` | `/api/profile` | 🔒 Token | Memperbarui profil lapak/warung, blok pasar, dan alamat |
+| `PUT` | `/api/profile/password` | 🔒 Token | Memperbarui password akun |
 
-### Menyimpan & Mengirim Token
+### 2. Katalog Publik (`/api/categories`, `/api/products`)
+| Method | Endpoint | Hak Akses | Deskripsi |
+|:---:|---|:---:|---|
+| `GET` | `/api/categories` | Publik | Daftar kategori komoditas grosir |
+| `GET` | `/api/products` | Publik | Etalase komoditas (filter: `search`, `category`, `min_price`, `max_price`, paginasi) |
+| `GET` | `/api/products/{slug}` | Publik | Detail lengkap komoditas berdasarkan slug |
 
-Setelah Login atau Register berhasil, simpan token yang diterima:
-```typescript
-// Simpan token
-localStorage.setItem('token', response.data.token);
+### 3. Modul Buyer — Keranjang & Pesanan
+| Method | Endpoint | Hak Akses | Deskripsi |
+|:---:|---|:---:|---|
+| `GET` | `/api/cart` | 🔒 Buyer/Admin | Melihat isi keranjang belanja grosir & ringkasan harga |
+| `POST` | `/api/cart` | 🔒 Buyer/Admin | Memasukkan barang ke keranjang (validasi `min_order` & stok) |
+| `PUT` | `/api/cart/{id}` | 🔒 Buyer/Admin | Mengubah kuantitas item keranjang |
+| `DELETE`| `/api/cart/{id}` | 🔒 Buyer/Admin | Menghapus satu item dari keranjang |
+| `DELETE`| `/api/cart` | 🔒 Buyer/Admin | Mengosongkan keranjang belanja |
+| `POST` | `/api/orders/checkout` | 🔒 Buyer/Admin | **Checkout pesanan grosir multi-kios** (potong stok & snapshot harga) |
+| `GET` | `/api/orders` | 🔒 Buyer/Admin | Riwayat pesanan pembeli (filter: `order_status`, `payment_status`) |
+| `GET` | `/api/orders/{order_number}` | 🔒 Semua Role | Detail pesanan, kurir, komoditas per kios lapak |
+| `POST` | `/api/orders/{order_number}/cancel` | 🔒 Buyer/Admin | Membatalkan pesanan (hanya jika `pending`, stok pulih) |
+| `POST` | `/api/orders/{order_number}/payment` | 🔒 Buyer/Admin | Bayar pesanan: unggah bukti transfer atau pilih `cod` |
+| `GET` | `/api/orders/{order_number}/payment` | 🔒 Buyer/Admin | Melihat rincian status pembayaran |
 
-// Kirim di setiap request protected
-headers: {
-  'Authorization': `Bearer ${localStorage.getItem('token')}`
-}
-```
+### 4. Modul Seller — Kios Pasar Induk
+| Method | Endpoint | Hak Akses | Deskripsi |
+|:---:|---|:---:|---|
+| `GET` | `/api/seller/products` | 🔒 Seller | Daftar produk komoditas milik kios sendiri |
+| `POST` | `/api/products` | 🔒 Seller | Tambah komoditas baru (satuan: `kg`, `ikat`, `karung`, `peti`) |
+| `PUT` | `/api/products/{slug}` | 🔒 Seller | Edit harga, stok, atau deskripsi komoditas |
+| `DELETE`| `/api/products/{slug}` | 🔒 Seller | Hapus komoditas (Soft Delete) |
+| `GET` | `/api/seller/orders` | 🔒 Seller | Daftar pesanan masuk yang memuat barang dari kios ini |
+| `GET` | `/api/seller/incoming-items` | 🔒 Seller | **Antrean komoditas yang harus dikemas** di kios sebelum kurir tiba |
+| `PATCH`| `/api/seller/order-items/{id}/status`| 🔒 Seller | Tandai kesiapan barang lapak atau laporkan stok darurat kosong |
 
-### Helper `apiFetch` (Contoh Next.js)
+### 5. Modul Courier — Kurir Lapangan
+| Method | Endpoint | Hak Akses | Deskripsi |
+|:---:|---|:---:|---|
+| `GET` | `/api/courier/deliveries` | 🔒 Courier/Admin | Antrean pengantaran (`scope=available` untuk ambil tugas baru) |
+| `GET` | `/api/courier/deliveries/{order_number}`| 🔒 Courier/Admin | **Rute tugas**: daftar blok kios pasar induk & alamat warung buyer |
+| `POST` | `/api/courier/deliveries/{order_number}/claim` | 🔒 Courier/Admin | Kurir mengklaim pesanan siap jemput (status $\rightarrow$ `picking_up`) |
+| `PATCH`| `/api/courier/order-items/{id}/pickup` | 🔒 Courier/Admin | Validasi fisik di lapak pasar induk (`picked_up` / `out_of_stock`) |
+| `PATCH`| `/api/courier/deliveries/{order_number}/status` | 🔒 Courier/Admin | Update rute pengantaran: `in_transit` $\rightarrow$ `completed` |
 
-Buat file `lib/api.ts`:
-```typescript
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
+### 6. Modul Admin — Pengawasan & Operasional Pasar
+| Method | Endpoint | Hak Akses | Deskripsi |
+|:---:|---|:---:|---|
+| `GET` | `/api/admin/payments` | 🔒 Admin | Antrean verifikasi bukti transfer pembayaran |
+| `POST` | `/api/admin/payments/{id}/verify` | 🔒 Admin | Verifikasi transfer bank: `approve` (status jadi `confirmed`) atau `reject` |
+| `GET` | `/api/admin/orders` | 🔒 Admin | Audit seluruh transaksi pasar (filter tanggal, kurir, kios, search) |
+| `GET` | `/api/admin/orders/{order_number}` | 🔒 Admin | Detail lengkap transaksi pasar |
+| `POST` | `/api/admin/orders/{order_number}/assign-courier` | 🔒 Admin | Penugasan kurir secara manual (*dispatching*) |
+| `POST` | `/api/admin/orders/{order_number}/cancel` | 🔒 Admin | Pembatalan darurat pasar & pemulihan stok otomatis |
+| `GET` | `/api/admin/users` | 🔒 Admin | Manajemen akun pengguna pasar (filter: role, status aktif) |
+| `GET` | `/api/admin/users/{user}` | 🔒 Admin | Detail data user beserta profil kios/warung |
+| `PATCH`| `/api/admin/users/{user}/status` | 🔒 Admin | Aktivasi / Deaktivasi akun (auto-revoke Sanctum tokens) |
 
-export async function apiFetch(endpoint: string, options: RequestInit = {}) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+---
 
-  const headers: Record<string, string> = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  };
+## 🔄 Lifecycle & State Machine Pesanan
 
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw {
-      status: response.status,
-      message: data?.message || 'Terjadi kesalahan.',
-      errors: data?.errors || null, // Error validasi per-field
-    };
-  }
-
-  return data;
-}
+```text
+[Checkout Buyer]
+       │
+       ▼
+  (pending)  ───> [Pembayaran: Transfer] ───> [Admin Approve]
+       │                                             │
+       │ (Pembayaran: COD)                           │
+       ▼                                             ▼
+  (confirmed) <──────────────────────────────────────┘
+       │
+       ▼ [Kurir Claim / Admin Assign]
+ (picking_up) ──> [Kurir validasi fisik tiap kios: picked_up / out_of_stock]
+       │
+       ▼ [Kurir berangkat dari Pasar Induk]
+  (in_transit)
+       │
+       ▼ [Kurir tiba di warung & serah terima]
+  (completed) ──> [Jika COD: otomatis payment_status = paid]
 ```
 
 ---
 
-## Ringkasan Seluruh API Endpoint (Quick Reference)
+## 🧪 Pengujian & Jaminan Mutu
 
-Tabel berikut merangkum seluruh endpoint API yang telah selesai dibuat dan siap digunakan oleh tim Frontend:
-
-| Modul | Method | Endpoint | Akses / Auth | Deskripsi Singkat | Status Sukses |
-|---|:---:|---|:---:|---|:---:|
-| **Auth** | `POST` | `/api/auth/register` | Publik | Registrasi akun pedagang (Seller/Buyer) & profil kios | `201 Created` |
-| **Auth** | `POST` | `/api/auth/login` | Publik | Login menggunakan nomor HP & password | `200 OK` |
-| **Auth** | `GET` | `/api/auth/me` | 🔒 Token (Semua Role) | Ambil info akun & toko user yang sedang login | `200 OK` |
-| **Auth** | `POST` | `/api/auth/logout` | 🔒 Token (Semua Role) | Logout & mencabut token akses aktif | `200 OK` |
-| **Kategori** | `GET` | `/api/categories` | Publik | Daftar kategori komoditas beserta jumlah produk aktif | `200 OK` |
-| **Produk** | `GET` | `/api/products` | Publik | Katalog etalase (filter kategori, search, sort, pagination) | `200 OK` |
-| **Produk** | `GET` | `/api/products/{slug}` | Publik | Detail lengkap komoditas berdasarkan slug | `200 OK` |
-| **Produk (Seller)** | `GET` | `/api/seller/products` | 🔒 Token (Role: `seller`) | Daftar seluruh produk milik seller yang login | `200 OK` |
-| **Produk (Seller)** | `POST` | `/api/products` | 🔒 Token (Role: `seller`) | Tambah produk baru ke kios seller | `201 Created` |
-| **Produk (Seller)** | `PUT` | `/api/products/{slug}` | 🔒 Token (Role: `seller`, Pemilik) | Update nama, harga, stok, atau status produk | `200 OK` |
-| **Produk (Seller)** | `DELETE` | `/api/products/{slug}` | 🔒 Token (Role: `seller`, Pemilik) | Hapus produk dari kios (soft delete) | `204 No Content` |
-
-> 🔒 **Catatan Auth:** Endpoint dengan ikon gembok membutuhkan header `Authorization: Bearer {token}`.
-
----
-
-## Referensi API Endpoint (Detail Payload & Response)
-
-### Autentikasi — `/api/auth`
-
-#### `POST /api/auth/register`
-Mendaftarkan akun baru. Hanya role `seller` dan `buyer` yang bisa mendaftar mandiri.
-
-**Request Body:**
-```json
-{
-  "name": "Bu Dewi",
-  "phone": "081234567890",
-  "email": "dewi@email.com",
-  "password": "password123",
-  "password_confirmation": "password123",
-  "role": "buyer",
-  "store_name": "Warung Sayur Bu Dewi",
-  "market_name": "Pasar Minggu",
-  "block_number": "Kios B-12",
-  "full_address": "Jl. Pasar Minggu Raya No. 5"
-}
-```
-
-> `email`, `store_name`, `market_name`, `block_number`, `full_address` bersifat **opsional**.
-
-**Response `201 Created`:**
-```json
-{
-  "message": "Registrasi berhasil.",
-  "data": {
-    "user": {
-      "id": 1,
-      "name": "Bu Dewi",
-      "email": null,
-      "phone": "081234567890",
-      "role": "buyer",
-      "is_active": true,
-      "profile": {
-        "store_name": "Warung Sayur Bu Dewi",
-        "market_name": "Pasar Minggu",
-        "block_number": "Kios B-12",
-        "full_address": "Jl. Pasar Minggu Raya No. 5",
-        "latitude": null,
-        "longitude": null
-      },
-      "created_at": "2026-10-23T03:09:00.000000Z"
-    },
-    "token": "1|abc123XYZ..."
-  }
-}
-```
-
----
-
-#### `POST /api/auth/login`
-Login menggunakan **Nomor HP + Password**.
-
-**Request Body:**
-```json
-{
-  "phone": "081234567890",
-  "password": "password123"
-}
-```
-
-**Response `200 OK`:** Sama strukturnya dengan Register.
-
-**Response Error `401`:**
-```json
-{ "message": "Nomor HP atau password salah." }
-```
-
-**Response Error `403`:**
-```json
-{ "message": "Akun Anda tidak aktif. Hubungi administrator." }
-```
-
----
-
-#### `GET /api/auth/me` 🔒
-Mengembalikan data user yang sedang login beserta profil tokonya.
-
-**Header:** `Authorization: Bearer {token}`
-
----
-
-#### `POST /api/auth/logout` 🔒
-Mencabut token aktif (logout).
-
-**Header:** `Authorization: Bearer {token}`
-
-**Response `200 OK`:**
-```json
-{ "message": "Logout berhasil." }
-```
-
----
-
-### Kategori — `/api/categories`
-
-#### `GET /api/categories`
-Mengembalikan seluruh kategori komoditas beserta jumlah produk aktif.
-
-**Response `200 OK`:**
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "name": "Sayuran Hijau",
-      "slug": "sayuran-hijau",
-      "image_url": "https://...",
-      "products_count": 12
-    }
-  ]
-}
-```
-
----
-
-### Produk — `/api/products`
-
-#### `GET /api/products`
-Etalase komoditas semua seller, dengan dukungan filter dan pagination.
-
-**Query Parameters (semua opsional):**
-
-| Parameter | Contoh | Keterangan |
-|---|---|---|
-| `category` | `?category=sayuran-hijau` | Filter berdasarkan slug kategori |
-| `category_id` | `?category_id=3` | Filter berdasarkan ID kategori |
-| `search` | `?search=cabai` | Pencarian nama produk |
-| `seller_id` | `?seller_id=5` | Produk dari seller tertentu |
-| `sort` | `?sort=price_asc` | Urutan: `price_asc` \| `price_desc` \| `newest` |
-| `per_page` | `?per_page=12` | Jumlah per halaman (default: 15) |
-| `page` | `?page=2` | Nomor halaman |
-
-**Response `200 OK`:**
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "name": "Cabai Merah Keriting Super",
-      "slug": "cabai-merah-keriting-super",
-      "description": "Cabai segar langsung dari petani.",
-      "price": 85000,
-      "formatted_price": "Rp 85.000",
-      "unit": "kg",
-      "min_order": 1,
-      "stock": 200,
-      "image_url": "https://...",
-      "is_available": true,
-      "category": { "id": 2, "name": "Bawang & Cabai", "slug": "bawang-cabai" },
-      "seller": {
-        "id": 3,
-        "name": "Pak Hendra",
-        "profile": {
-          "store_name": "Kios Cabai Hendra",
-          "market_name": "Pasar Induk Kramat Jati"
-        }
-      }
-    }
-  ],
-  "meta": { "current_page": 1, "last_page": 4, "per_page": 15, "total": 56 },
-  "links": { "first": "...", "last": "...", "prev": null, "next": "..." }
-}
-```
-
----
-
-#### `GET /api/products/{slug}`
-Mengembalikan detail satu produk berdasarkan slug-nya.
-
-**Contoh:** `GET /api/products/cabai-merah-keriting-super`
-
-**Response Error `404`:**
-```json
-{ "message": "Produk tidak ditemukan atau tidak tersedia." }
-```
-
----
-
-### Produk — Khusus Seller 🔒
-
-Semua endpoint berikut membutuhkan token **role Seller**.
-
-**Header:** `Authorization: Bearer {token}`
-
----
-
-#### `GET /api/seller/products`
-Daftar seluruh produk milik seller yang sedang login (termasuk yang stok habis / tidak aktif).
-
-**Query Parameters:** `?search=cabai`, `?page=1`, `?per_page=15`
-
----
-
-#### `POST /api/products`
-Menambahkan komoditas baru ke kios seller.
-
-**Request Body:**
-```json
-{
-  "category_id": 2,
-  "name": "Cabai Hijau Keriting",
-  "description": "Cabai hijau segar dari petani lokal.",
-  "price": 40000,
-  "unit": "kg",
-  "min_order": 2,
-  "stock": 150,
-  "image_url": "https://...",
-  "is_available": true
-}
-```
-
-> **Nilai `unit` yang valid:** `kg` | `ikat` | `karung` | `peti`
-
-> `seller_id` otomatis diambil dari token — **tidak perlu dikirim dari frontend**.
-
-**Response `201 Created`:** Mengembalikan `ProductResource` lengkap termasuk `seller` dan `category`.
-
----
-
-#### `PUT /api/products/{slug}`
-Mengupdate data produk milik seller. Semua field bersifat **opsional** — hanya kirim field yang ingin diubah.
-
-**Contoh (hanya update harga dan stok):**
-```json
-{
-  "price": 45000,
-  "stock": 80
-}
-```
-
-**Response Error `403`:**
-```json
-{ "message": "Anda tidak memiliki akses untuk mengubah produk ini." }
-```
-
----
-
-#### `DELETE /api/products/{slug}`
-Menghapus produk (Soft Delete — data tetap ada di database, tidak muncul di katalog publik).
-
-**Response `204 No Content`** (tanpa body)
-
-**Response Error `403`:**
-```json
-{ "message": "Anda tidak memiliki akses untuk menghapus produk ini." }
-```
-
----
-
-## Format Error Standar
-
-**Validation Error `422`:**
-```json
-{
-  "message": "The given data was invalid.",
-  "errors": {
-    "phone": ["Nomor HP sudah terdaftar."],
-    "role": ["Role yang dipilih tidak diizinkan untuk registrasi mandiri."]
-  }
-}
-```
-
-**Unauthenticated `401`:**
-```json
-{ "message": "Unauthenticated." }
-```
-
-**Forbidden `403`:**
-```json
-{ "message": "Akses ditolak. Peran tidak sesuai." }
-```
-
----
-
-## Modul API yang Tersedia
-
-| Modul | Status |
-|---|:---:|
-| Autentikasi (Register, Login, Logout, Me) | ✅ Selesai |
-| Kategori Komoditas | ✅ Selesai |
-| Katalog Produk (Publik + Seller CRUD) | ✅ Selesai |
-| Keranjang Belanja (Cart) | 🔄 Dalam Rencana |
-| Pesanan & Logistik (Order) | 🔄 Dalam Rencana |
-| Pembayaran & Verifikasi (Payment) | 🔄 Dalam Rencana |
-
----
-
-## Menjalankan Test Suite
+Seluruh endpoint dan logika bisnis telah diverifikasi menggunakan pengujian terisolasi **PHPUnit 12**:
 
 ```bash
+# Menjalankan seluruh test suite
 php artisan test --compact
 ```
 
+### Hasil Pengujian Saat Ini:
+```text
+Tests:    110 passed (469 assertions)
+Duration: 2.17s
+Status:   100% OK
 ```
-✅  35 Tests — 182 Assertions — All Passed
+
+### Pengecekan Gaya Kode (Linter & Formatter):
+```bash
+# Memformat kode sesuai standar Laravel Pint
+vendor/bin/pint --format agent
 ```
+
+---
+
+## 📄 Lisensi
+Hak Cipta © 2026 Makar B2B Platform. Dilisensikan di bawah [MIT License](LICENSE).
