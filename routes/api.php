@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Resources\UserResource;
@@ -42,6 +43,15 @@ Route::middleware(['auth:sanctum', 'role:buyer,admin'])->group(function () {
     Route::delete('cart', [CartController::class, 'clear']);
     Route::put('cart/{cart}', [CartController::class, 'update']);
     Route::delete('cart/{cart}', [CartController::class, 'destroy']);
+
+    Route::get('orders', [OrderController::class, 'index']);
+    Route::post('orders/checkout', [OrderController::class, 'checkout']);
+    Route::post('orders/{order:order_number}/cancel', [OrderController::class, 'cancel']);
+});
+
+// Order Detail Route (Protected - Policy based access)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('orders/{order:order_number}', [OrderController::class, 'show']);
 });
 
 // Profile Routes (Protected - All Authenticated Roles)
