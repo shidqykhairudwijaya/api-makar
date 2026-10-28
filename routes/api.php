@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
@@ -59,10 +61,22 @@ Route::middleware(['auth:sanctum', 'role:buyer,admin'])->group(function () {
     Route::get('orders/{order:order_number}/payment', [PaymentController::class, 'show']);
 });
 
-// Admin Payment Routes (Protected - Admin only)
+// Admin Routes (Protected - Admin only)
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+    // Payments
     Route::get('admin/payments', [AdminPaymentController::class, 'index']);
     Route::post('admin/payments/{payment}/verify', [AdminPaymentController::class, 'verify']);
+
+    // Orders Management
+    Route::get('admin/orders', [AdminOrderController::class, 'index']);
+    Route::get('admin/orders/{order:order_number}', [AdminOrderController::class, 'show']);
+    Route::post('admin/orders/{order:order_number}/assign-courier', [AdminOrderController::class, 'assignCourier']);
+    Route::post('admin/orders/{order:order_number}/cancel', [AdminOrderController::class, 'cancel']);
+
+    // Users Management
+    Route::get('admin/users', [AdminUserController::class, 'index']);
+    Route::get('admin/users/{user}', [AdminUserController::class, 'show']);
+    Route::patch('admin/users/{user}/status', [AdminUserController::class, 'updateStatus']);
 });
 
 // Order Detail Route (Protected - Policy based access)
@@ -80,7 +94,7 @@ Route::middleware(['auth:sanctum', 'role:courier,admin'])->group(function () {
 });
 
 // Profile Routes (Protected - All Authenticated Roles)
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'role:buyer,seller,courier,admin'])->group(function () {
     Route::get('profile', [ProfileController::class, 'show']);
     Route::put('profile', [ProfileController::class, 'update']);
     Route::put('profile/password', [ProfileController::class, 'updatePassword']);
