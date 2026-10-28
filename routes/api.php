@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,13 @@ Route::middleware(['auth:sanctum', 'role:buyer,admin'])->group(function () {
     Route::delete('cart', [CartController::class, 'clear']);
     Route::put('cart/{cart}', [CartController::class, 'update']);
     Route::delete('cart/{cart}', [CartController::class, 'destroy']);
+});
+
+// Profile Routes (Protected - All Authenticated Roles)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('profile', [ProfileController::class, 'show']);
+    Route::put('profile', [ProfileController::class, 'update']);
+    Route::put('profile/password', [ProfileController::class, 'updatePassword']);
 });
 
 Route::get('/user', function (Request $request) {
