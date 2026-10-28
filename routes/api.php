@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Resources\UserResource;
@@ -47,6 +49,14 @@ Route::middleware(['auth:sanctum', 'role:buyer,admin'])->group(function () {
     Route::get('orders', [OrderController::class, 'index']);
     Route::post('orders/checkout', [OrderController::class, 'checkout']);
     Route::post('orders/{order:order_number}/cancel', [OrderController::class, 'cancel']);
+    Route::post('orders/{order:order_number}/payment', [PaymentController::class, 'submit']);
+    Route::get('orders/{order:order_number}/payment', [PaymentController::class, 'show']);
+});
+
+// Admin Payment Routes (Protected - Admin only)
+Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+    Route::get('admin/payments', [AdminPaymentController::class, 'index']);
+    Route::post('admin/payments/{payment}/verify', [AdminPaymentController::class, 'verify']);
 });
 
 // Order Detail Route (Protected - Policy based access)
