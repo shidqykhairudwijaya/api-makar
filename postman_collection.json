@@ -1,0 +1,796 @@
+{
+  "info": {
+    "_postman_id": "b2b-marketplace-pasar-grosir-v1",
+    "name": "B2B Marketplace Grosir Pasar API",
+    "description": "Dokumentasi RESTful API Backend Laravel 13 & Sanctum untuk B2B Marketplace Grosir Pasar Induk ke Warung/Pasar Kecil (Frontend: Next.js).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autentikasi & Profil",
+      "item": [
+        {
+          "name": "Register Akun (Seller / Buyer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pak Haji Syahril\",\n  \"phone\": \"081299887766\",\n  \"email\": \"syahril.pasar@makar.id\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"role\": \"seller\",\n  \"store_name\": \"UD Berkah Cabai Segar\",\n  \"market_name\": \"Pasar Induk Kramat Jati\",\n  \"block_number\": \"Blok B-1 No. 45-48\",\n  \"full_address\": \"Jl. Raya Bogor No.KM. 19, Kramat Jati, Jakarta Timur\",\n  \"latitude\": -6.27510000,\n  \"longitude\": 106.86820000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Mendaftarkan akun baru untuk role 'seller' (pedagang pasar induk) atau 'buyer' (pedagang pasar kecil/warung)."
+          }
+        },
+        {
+          "name": "Login (Auto-Save Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.token) {",
+                  "        pm.collectionVariables.set(\"token\", json.data.token);",
+                  "        console.log(\"Token tersimpan otomatis ke variabel {{token}}:\", json.data.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"081300000001\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login menggunakan nomor HP dan password. Akun demo:\n- Buyer: 081300000001 / password123\n- Seller: 081200000001 / password123\n- Courier: 081400000001 / password123\n- Admin: 081100000001 / password123"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Cek User Aktif (auth/me)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Ambil Profil Lengkap (GET profile)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/profile",
+              "host": ["{{base_url}}"],
+              "path": ["profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Profil Kios / Warung (PUT profile)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bu Dewi Sri Rezeki\",\n  \"store_name\": \"Kios Sayur Berkah Bu Dewi\",\n  \"market_name\": \"Pasar Minggu\",\n  \"block_number\": \"Lantai Dasar Kios No. 12-14\",\n  \"full_address\": \"Jl. Pasar Minggu Raya No. 5, Jakarta Selatan\",\n  \"latitude\": -6.28450000,\n  \"longitude\": 106.84410000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/profile",
+              "host": ["{{base_url}}"],
+              "path": ["profile"]
+            }
+          }
+        },
+        {
+          "name": "Ganti Password (PUT profile/password)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"password123\",\n  \"password\": \"passwordBaru123\",\n  \"password_confirmation\": \"passwordBaru123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/profile/password",
+              "host": ["{{base_url}}"],
+              "path": ["profile", "password"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Katalog Publik (Next.js Home & Search)",
+      "item": [
+        {
+          "name": "Daftar Kategori",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": ["{{base_url}}"],
+              "path": ["categories"]
+            }
+          }
+        },
+        {
+          "name": "Daftar Produk Grosir (Filter & Pagination)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/products?search=cabai&per_page=15",
+              "host": ["{{base_url}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "search", "value": "cabai", "description": "Cari nama komoditas" },
+                { "key": "category", "value": "bawang-cabai-bumbu-dapur", "disabled": true },
+                { "key": "min_price", "value": "10000", "disabled": true },
+                { "key": "max_price", "value": "500000", "disabled": true },
+                { "key": "per_page", "value": "15" },
+                { "key": "page", "value": "1", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detail Produk Grosir by Slug",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/products/cabai-merah-keriting-super-grosir",
+              "host": ["{{base_url}}"],
+              "path": ["products", "cabai-merah-keriting-super-grosir"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Buyer (Keranjang & Checkout Pesanan)",
+      "item": [
+        {
+          "name": "Lihat Keranjang Belanja (GET cart)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/cart",
+              "host": ["{{base_url}}"],
+              "path": ["cart"]
+            }
+          }
+        },
+        {
+          "name": "Tambah Barang ke Keranjang (POST cart)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": 1,\n  \"quantity\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cart",
+              "host": ["{{base_url}}"],
+              "path": ["cart"]
+            },
+            "description": "Kuantitas wajib memenuhi min_order dan tidak melebihi stok kios."
+          }
+        },
+        {
+          "name": "Ubah Kuantitas Keranjang (PUT cart/:id)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 10\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cart/1",
+              "host": ["{{base_url}}"],
+              "path": ["cart", "1"]
+            }
+          }
+        },
+        {
+          "name": "Hapus Item Keranjang (DELETE cart/:id)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/cart/1",
+              "host": ["{{base_url}}"],
+              "path": ["cart", "1"]
+            }
+          }
+        },
+        {
+          "name": "Kosongkan Keranjang (DELETE cart)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/cart",
+              "host": ["{{base_url}}"],
+              "path": ["cart"]
+            }
+          }
+        },
+        {
+          "name": "Checkout Grosir (POST orders/checkout)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Tolong pilihkan cabai yang kering dan segar, sampai sebelum jam 05.00 subuh.\",\n  \"delivery_fee\": 25000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "checkout"]
+            },
+            "description": "Mengonversi seluruh item keranjang menjadi order resmi, memotong stok di kios seller, dan mengunci snapshot harga."
+          }
+        },
+        {
+          "name": "Riwayat Pesanan Buyer (GET orders)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/orders?order_status=pending&page=1",
+              "host": ["{{base_url}}"],
+              "path": ["orders"],
+              "query": [
+                { "key": "order_status", "value": "pending", "disabled": true },
+                { "key": "payment_status", "value": "unpaid", "disabled": true },
+                { "key": "page", "value": "1", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detail Pesanan by Order Number",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/orders/ORD-20261028-ABC123",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "ORD-20261028-ABC123"]
+            }
+          }
+        },
+        {
+          "name": "Batalkan Pesanan (POST orders/:id/cancel)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Warung tutup karena ada acara keluarga.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/ORD-20261028-ABC123/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "ORD-20261028-ABC123", "cancel"]
+            },
+            "description": "Pembatalan hanya bisa dilakukan jika status masih 'pending'. Stok produk otomatis dikembalikan ke lapak penjual."
+          }
+        },
+        {
+          "name": "Bayar Pesanan (COD / Manual Transfer)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "payment_method", "value": "manual_transfer", "type": "text" },
+                { "key": "payment_proof", "type": "file", "description": "Unggah gambar struk transfer (jpeg/png/jpg, max 2MB)" },
+                { "key": "external_reference_id", "value": "TRX-BCA-12345678", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/ORD-20261028-ABC123/payment",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "ORD-20261028-ABC123", "payment"]
+            },
+            "description": "Jika 'payment_method' = 'cod', order otomatis langsung naik status menjadi 'confirmed' tanpa wajib upload gambar."
+          }
+        },
+        {
+          "name": "Lihat Status Pembayaran Pesanan",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/orders/ORD-20261028-ABC123/payment",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "ORD-20261028-ABC123", "payment"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Seller - Pasar Induk (Lapak & Pesanan)",
+      "item": [
+        {
+          "name": "Daftar Produk Kios Sendiri (GET seller/products)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/seller/products",
+              "host": ["{{base_url}}"],
+              "path": ["seller", "products"]
+            }
+          }
+        },
+        {
+          "name": "Tambah Komoditas Baru (POST products)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": 1,\n  \"name\": \"Bawang Putih Kating Super 1 Karung 20kg\",\n  \"description\": \"Bawang putih kating impor segar kualitas super, kering siap simpan.\",\n  \"price\": 640000,\n  \"unit\": \"karung\",\n  \"min_order\": 1,\n  \"stock\": 30,\n  \"image_url\": \"https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb\",\n  \"is_available\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": ["{{base_url}}"],
+              "path": ["products"]
+            },
+            "description": "Satuan grosir (unit) yang didukung: kg, ikat, karung, peti."
+          }
+        },
+        {
+          "name": "Update Komoditas (PUT products/:slug)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 620000,\n  \"stock\": 25,\n  \"is_available\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/products/bawang-putih-kating-super-1-karung-20kg",
+              "host": ["{{base_url}}"],
+              "path": ["products", "bawang-putih-kating-super-1-karung-20kg"]
+            }
+          }
+        },
+        {
+          "name": "Hapus Komoditas (DELETE products/:slug)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/products/bawang-putih-kating-super-1-karung-20kg",
+              "host": ["{{base_url}}"],
+              "path": ["products", "bawang-putih-kating-super-1-karung-20kg"]
+            }
+          }
+        },
+        {
+          "name": "Daftar Pesanan Masuk Lapak Kios (GET seller/orders)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/seller/orders",
+              "host": ["{{base_url}}"],
+              "path": ["seller", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Antrean Komoditas yang Harus Disiapkan (GET incoming-items)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/seller/incoming-items",
+              "host": ["{{base_url}}"],
+              "path": ["seller", "incoming-items"]
+            },
+            "description": "Menampilkan barang dagangan kios yang sedang berstatus 'waiting' pada order confirmed/picking_up untuk disiapkan sebelum kurir tiba."
+          }
+        },
+        {
+          "name": "Konfirmasi Ketersediaan Barang Kios (PATCH order-items/:id/status)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pickup_status\": \"out_of_stock\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/seller/order-items/1/status",
+              "host": ["{{base_url}}"],
+              "path": ["seller", "order-items", "1", "status"]
+            },
+            "description": "Pilihan status: waiting, picked_up, out_of_stock."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Courier - Kurir Lapangan (Jemput & Antar)",
+      "item": [
+        {
+          "name": "Pesanan Siap Diambil (GET deliveries?scope=available)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/courier/deliveries?scope=available",
+              "host": ["{{base_url}}"],
+              "path": ["courier", "deliveries"],
+              "query": [{ "key": "scope", "value": "available", "description": "Pesanan confirmed yang belum diambil kurir manapun" }]
+            }
+          }
+        },
+        {
+          "name": "Pesanan yang Ditugaskan ke Saya (GET deliveries)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/courier/deliveries",
+              "host": ["{{base_url}}"],
+              "path": ["courier", "deliveries"]
+            }
+          }
+        },
+        {
+          "name": "Detail Rute Pengantaran & Kios Pasar Induk",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/courier/deliveries/ORD-20261028-ABC123",
+              "host": ["{{base_url}}"],
+              "path": ["courier", "deliveries", "ORD-20261028-ABC123"]
+            },
+            "description": "Menampilkan blok kios pasar induk yang harus didatangi dan alamat tujuan warung pembeli."
+          }
+        },
+        {
+          "name": "Klaim / Ambil Tugas Pesanan (POST claim)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/courier/deliveries/ORD-20261028-ABC123/claim",
+              "host": ["{{base_url}}"],
+              "path": ["courier", "deliveries", "ORD-20261028-ABC123", "claim"]
+            },
+            "description": "Otomatis mengaitkan courier_id dan mengubah status order menjadi 'picking_up'."
+          }
+        },
+        {
+          "name": "Update Status Barang di Kios (PATCH order-items/:id/pickup)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pickup_status\": \"picked_up\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/courier/order-items/1/pickup",
+              "host": ["{{base_url}}"],
+              "path": ["courier", "order-items", "1", "pickup"]
+            },
+            "description": "Kurir memvalidasi fisik di kios pasar induk: 'picked_up' atau 'out_of_stock'."
+          }
+        },
+        {
+          "name": "Update Status Pengantaran (in_transit -> completed)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/courier/deliveries/ORD-20261028-ABC123/status",
+              "host": ["{{base_url}}"],
+              "path": ["courier", "deliveries", "ORD-20261028-ABC123", "status"]
+            },
+            "description": "Pilihan status: in_transit (menuju warung buyer) atau completed (barang diserahkan). Jika order COD, otomatis status pembayaran berubah menjadi 'paid'."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Admin - Operasional Pasar",
+      "item": [
+        {
+          "name": "Antrean Verifikasi Bukti Transfer (GET admin/payments)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/admin/payments?verified=false",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "payments"],
+              "query": [{ "key": "verified", "value": "false", "description": "Menampilkan pembayaran transfer yang belum diverifikasi" }]
+            }
+          }
+        },
+        {
+          "name": "Approve / Reject Bukti Transfer (POST verify)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/payments/1/verify",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "payments", "1", "verify"]
+            },
+            "description": "Jika 'action' = 'approve', order otomatis jadi 'confirmed' dan payment jadi 'paid'. Jika 'reject', wajib menyertakan 'rejection_reason'."
+          }
+        },
+        {
+          "name": "Audit & Monitoring Seluruh Transaksi Pasar (GET admin/orders)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/admin/orders?unassigned=1",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "orders"],
+              "query": [
+                { "key": "unassigned", "value": "1", "description": "Pesanan yang belum memiliki kurir" },
+                { "key": "order_status", "value": "confirmed", "disabled": true },
+                { "key": "payment_status", "value": "paid", "disabled": true },
+                { "key": "search", "value": "ORD-", "disabled": true },
+                { "key": "date_from", "value": "2026-10-01", "disabled": true },
+                { "key": "date_to", "value": "2026-10-31", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detail Transaksi Pasar (GET admin/orders/:order_number)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/admin/orders/ORD-20261028-ABC123",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "orders", "ORD-20261028-ABC123"]
+            }
+          }
+        },
+        {
+          "name": "Tugaskan Kurir Manual (POST assign-courier)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courier_id\": 4\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/orders/ORD-20261028-ABC123/assign-courier",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "orders", "ORD-20261028-ABC123", "assign-courier"]
+            },
+            "description": "Menugaskan kurir aktif secara manual. Jika status pesanan 'confirmed', otomatis naik menjadi 'picking_up'."
+          }
+        },
+        {
+          "name": "Pembatalan Darurat Pasar oleh Admin (POST cancel)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Kios pedagang pasar induk tutup mendadak karena perbaikan saluran drainase.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/orders/ORD-20261028-ABC123/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "orders", "ORD-20261028-ABC123", "cancel"]
+            },
+            "description": "Stok barang di lapak pedagang pasar induk otomatis dikembalikan utuh."
+          }
+        },
+        {
+          "name": "Daftar Pengguna Pasar (GET admin/users)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/admin/users?role=seller",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users"],
+              "query": [
+                { "key": "role", "value": "seller", "description": "seller, buyer, courier, admin" },
+                { "key": "is_active", "value": "true", "disabled": true },
+                { "key": "search", "value": "Berkah", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detail Pengguna & Profil Toko (GET admin/users/:id)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/admin/users/2",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "2"]
+            }
+          }
+        },
+        {
+          "name": "Aktivasi / Nonaktifkan Akun (PATCH admin/users/:id/status)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/2/status",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "2", "status"]
+            },
+            "description": "Jika 'is_active' disetel ke false, seluruh token sesi login user tersebut otomatis dicabut seketika."
+          }
+        }
+      ]
+    }
+  ]
+}
+
