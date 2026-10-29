@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Http\Policies;
-
 namespace App\Policies;
 
+use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Models\Order;
 use App\Models\User;
@@ -32,7 +31,14 @@ class OrderPolicy
         }
 
         if ($user->role === UserRole::Courier) {
-            return $order->courier_id === $user->id || $order->courier_id === null;
+            if ($order->courier_id === $user->id) {
+                return true;
+            }
+
+            return $order->courier_id === null && in_array($order->order_status, [
+                OrderStatus::Confirmed,
+                OrderStatus::PickingUp,
+            ], true);
         }
 
         if ($user->role === UserRole::Seller) {

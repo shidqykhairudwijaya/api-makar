@@ -89,12 +89,26 @@ class CourierDeliveryController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($order, $courier): void {
+        $claimed = DB::transaction(function () use ($order, $courier): bool {
+            $locked = Order::where('id', $order->id)->lockForUpdate()->first();
+
+            if (! $locked || $locked->courier_id !== null || $locked->order_status !== OrderStatus::Confirmed) {
+                return false;
+            }
+
             $order->update([
                 'courier_id' => $courier->id,
                 'order_status' => OrderStatus::PickingUp,
             ]);
+
+            return true;
         });
+
+        if (! $claimed) {
+            return response()->json([
+                'message' => 'Pesanan ini sudah diambil oleh kurir lain.',
+            ], 422);
+        }
 
         $order->load(['buyer.profile', 'items.seller.profile', 'items.product']);
 
