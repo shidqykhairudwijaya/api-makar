@@ -423,39 +423,54 @@
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
             "header": [
-              { "key": "Accept", "value": "application/json" },
-              { "key": "Content-Type", "value": "application/json" }
+              { "key": "Accept", "value": "application/json" }
             ],
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"category_id\": 1,\n  \"name\": \"Bawang Putih Kating Super 1 Karung 20kg\",\n  \"description\": \"Bawang putih kating impor segar kualitas super, kering siap simpan.\",\n  \"price\": 640000,\n  \"unit\": \"karung\",\n  \"min_order\": 1,\n  \"stock\": 30,\n  \"image_url\": \"https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb\",\n  \"is_available\": true\n}"
+              "mode": "formdata",
+              "formdata": [
+                { "key": "category_id", "value": "1", "type": "text" },
+                { "key": "name", "value": "Bawang Putih Kating Super 1 Karung 20kg", "type": "text" },
+                { "key": "description", "value": "Bawang putih kating impor segar kualitas super, kering siap simpan.", "type": "text" },
+                { "key": "price", "value": "640000", "type": "text" },
+                { "key": "unit", "value": "karung", "type": "text" },
+                { "key": "min_order", "value": "1", "type": "text" },
+                { "key": "stock", "value": "30", "type": "text" },
+                { "key": "image", "type": "file", "description": "Unggah berkas foto produk dari perangkat (jpeg/png/jpg/webp, max 2MB)" },
+                { "key": "is_available", "value": "1", "type": "text" }
+              ]
             },
             "url": {
               "raw": "{{base_url}}/products",
               "host": ["{{base_url}}"],
               "path": ["products"]
             },
-            "description": "Satuan grosir (unit) yang didukung: kg, ikat, karung, peti."
+            "description": "Unggah komoditas baru via multipart/form-data dengan file foto 'image'. Satuan grosir (unit) yang didukung: kg, ikat, karung, peti."
           }
         },
         {
-          "name": "Update Komoditas (PUT products/:slug)",
+          "name": "Update Komoditas (PUT / POST products/:slug)",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "PUT",
+            "method": "POST",
             "header": [
-              { "key": "Accept", "value": "application/json" },
-              { "key": "Content-Type", "value": "application/json" }
+              { "key": "Accept", "value": "application/json" }
             ],
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"price\": 620000,\n  \"stock\": 25,\n  \"is_available\": true\n}"
+              "mode": "formdata",
+              "formdata": [
+                { "key": "_method", "value": "PUT", "type": "text" },
+                { "key": "price", "value": "620000", "type": "text" },
+                { "key": "stock", "value": "25", "type": "text" },
+                { "key": "is_available", "value": "1", "type": "text" },
+                { "key": "image", "type": "file", "description": "Unggah foto baru jika ingin mengganti gambar lama" }
+              ]
             },
             "url": {
               "raw": "{{base_url}}/products/bawang-putih-kating-super-1-karung-20kg",
               "host": ["{{base_url}}"],
               "path": ["products", "bawang-putih-kating-super-1-karung-20kg"]
-            }
+            },
+            "description": "Update komoditas. Jika ingin mengganti foto produk, kirim via multipart/form-data dengan method POST dan field '_method=PUT' (atau langsung PUT). Gambar lama di storage akan otomatis dihapus jika gambar baru diunggah."
           }
         },
         {

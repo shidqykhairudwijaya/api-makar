@@ -72,7 +72,7 @@ class PaymentTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $file = UploadedFile::fake()->image('struk_transfer.jpg', 600, 800);
+        $file = UploadedFile::fake()->create('struk_transfer.jpg', 600, 'image/jpeg');
 
         $response = $this->postJson("/api/orders/{$order->order_number}/payment", [
             'payment_method' => 'manual_transfer',

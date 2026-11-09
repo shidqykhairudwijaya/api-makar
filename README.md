@@ -189,8 +189,8 @@ Authorization: Bearer {{token}}  <-- untuk endpoint protected
 | Method | Endpoint | Hak Akses | Deskripsi |
 |:---:|---|:---:|---|
 | `GET` | `/api/seller/products` | 🔒 Seller | Daftar produk komoditas milik kios sendiri |
-| `POST` | `/api/products` | 🔒 Seller | Tambah komoditas baru (satuan: `kg`, `ikat`, `karung`, `peti`) |
-| `PUT` | `/api/products/{slug}` | 🔒 Seller | Edit harga, stok, atau deskripsi komoditas |
+| `POST` | `/api/products` | 🔒 Seller | Tambah komoditas baru (unggah foto produk, satuan: `kg`, `ikat`, `karung`, `peti`) |
+| `PUT/POST` | `/api/products/{slug}` | 🔒 Seller | Edit harga, stok, foto produk (otomatis hapus foto lama), atau deskripsi komoditas |
 | `DELETE`| `/api/products/{slug}` | 🔒 Seller | Hapus komoditas (Soft Delete) |
 | `GET` | `/api/seller/orders` | 🔒 Seller | Daftar pesanan masuk yang memuat barang dari kios ini |
 | `GET` | `/api/seller/incoming-items` | 🔒 Seller | **Antrean komoditas yang harus dikemas** di kios sebelum kurir tiba |

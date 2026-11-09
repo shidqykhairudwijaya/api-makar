@@ -32,8 +32,22 @@ class UpdateProductRequest extends FormRequest
             'unit' => ['sometimes', 'required', Rule::enum(ProductUnit::class)],
             'min_order' => ['sometimes', 'required', 'integer', 'min:1'],
             'stock' => ['sometimes', 'required', 'integer', 'min:0'],
-            'image_url' => ['nullable', 'string', 'url', 'max:2048'],
+            'image' => ['nullable', 'file', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
             'is_available' => ['sometimes', 'required', 'boolean'],
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'image.image' => 'Foto produk harus berupa berkas gambar.',
+            'image.mimes' => 'Format foto produk harus berupa jpeg, png, jpg, atau webp.',
+            'image.max' => 'Ukuran file foto produk maksimal 2MB.',
         ];
     }
 }

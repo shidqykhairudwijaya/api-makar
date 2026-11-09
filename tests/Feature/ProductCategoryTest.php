@@ -8,6 +8,9 @@ use App\Models\Product;
 use App\Models\User;
 use App\Models\UserProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -179,12 +182,16 @@ class ProductCategoryTest extends TestCase
         $response->assertStatus(404);
     }
 
-    public function test_seller_can_create_product_with_auto_generated_slug(): void
+    public function test_seller_can_create_product_with_uploaded_image_and_auto_generated_slug(): void
     {
+        Storage::fake('public');
+
         $seller = User::factory()->seller()->create();
         $category = Category::factory()->create();
 
         Sanctum::actingAs($seller);
+
+        $file = UploadedFile::fake()->create('tomat.jpg', 500, 'image/jpeg');
 
         $payload = [
             'category_id' => $category->id,
@@ -194,7 +201,7 @@ class ProductCategoryTest extends TestCase
             'unit' => ProductUnit::Kg->value,
             'min_order' => 2,
             'stock' => 100,
-            'image_url' => 'https://example.com/tomat.jpg',
+            'image' => $file,
             'is_available' => true,
         ];
 
@@ -205,6 +212,11 @@ class ProductCategoryTest extends TestCase
             ->assertJsonPath('data.seller_id', $seller->id)
             ->assertJsonPath('data.unit', 'kg');
 
+        $imageUrl = $response->json('data.image_url');
+        $this->assertNotNull($imageUrl);
+        $relativePath = Str::after($imageUrl, '/storage/');
+        Storage::disk('public')->assertExists($relativePath);
+
         $slug = $response->json('data.slug');
         $this->assertStringStartsWith('tomat-merah-segar-grade-a', $slug);
 
@@ -212,7 +224,34 @@ class ProductCategoryTest extends TestCase
             'name' => 'Tomat Merah Segar Grade A',
             'seller_id' => $seller->id,
             'slug' => $slug,
+            'image_url' => $imageUrl,
         ]);
+    }
+
+    public function test_seller_cannot_upload_invalid_product_image(): void
+    {
+        Storage::fake('public');
+
+        $seller = User::factory()->seller()->create();
+        $category = Category::factory()->create();
+
+        Sanctum::actingAs($seller);
+
+        $pdfFile = UploadedFile::fake()->create('dokumen.pdf', 500, 'application/pdf');
+
+        $payload = [
+            'category_id' => $category->id,
+            'name' => 'Tomat Merah',
+            'price' => 18000,
+            'unit' => ProductUnit::Kg->value,
+            'stock' => 100,
+            'image' => $pdfFile,
+        ];
+
+        $response = $this->postJson('/api/products', $payload);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['image']);
     }
 
     public function test_buyer_cannot_create_product(): void
@@ -305,6 +344,47 @@ class ProductCategoryTest extends TestCase
             'id' => $product->id,
             'price' => 30000,
             'stock' => 50,
+        ]);
+    }
+
+    public function test_seller_can_update_product_image_and_old_image_is_deleted(): void
+    {
+        Storage::fake('public');
+
+        $seller = User::factory()->seller()->create();
+
+        $oldFile = UploadedFile::fake()->create('old_image.jpg', 200, 'image/jpeg');
+        $oldPath = $oldFile->store('products', 'public');
+        $oldUrl = Storage::disk('public')->url($oldPath);
+
+        $product = Product::factory()->create([
+            'seller_id' => $seller->id,
+            'image_url' => $oldUrl,
+        ]);
+
+        Storage::disk('public')->assertExists($oldPath);
+
+        Sanctum::actingAs($seller);
+
+        $newFile = UploadedFile::fake()->create('new_image.jpg', 300, 'image/jpeg');
+
+        $response = $this->postJson("/api/products/{$product->slug}", [
+            'name' => $product->name,
+            'image' => $newFile,
+        ]);
+
+        $response->assertStatus(200);
+
+        Storage::disk('public')->assertMissing($oldPath);
+
+        $newUrl = $response->json('data.image_url');
+        $this->assertNotNull($newUrl);
+        $newRelativePath = Str::after($newUrl, '/storage/');
+        Storage::disk('public')->assertExists($newRelativePath);
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'image_url' => $newUrl,
         ]);
     }
 

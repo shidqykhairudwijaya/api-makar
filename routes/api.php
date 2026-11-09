@@ -38,7 +38,7 @@ Route::get('products/{product:slug}', [ProductController::class, 'show']);
 Route::middleware(['auth:sanctum', 'role:seller'])->group(function () {
     Route::get('seller/products', [ProductController::class, 'sellerIndex']);
     Route::post('products', [ProductController::class, 'store']);
-    Route::put('products/{product:slug}', [ProductController::class, 'update']);
+    Route::match(['put', 'post'], 'products/{product:slug}', [ProductController::class, 'update']);
     Route::delete('products/{product:slug}', [ProductController::class, 'destroy']);
 
     Route::get('seller/orders', [SellerOrderController::class, 'index']);

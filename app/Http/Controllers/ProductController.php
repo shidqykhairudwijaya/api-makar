@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProductController extends Controller
@@ -97,6 +98,12 @@ class ProductController extends Controller
 
         $slug = $this->generateUniqueSlug($request->validated('name'));
 
+        $imageUrl = null;
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('products', 'public');
+            $imageUrl = Storage::disk('public')->url($path);
+        }
+
         $product = Product::create([
             'seller_id' => $request->user()->id,
             'category_id' => $request->validated('category_id'),
@@ -107,7 +114,7 @@ class ProductController extends Controller
             'unit' => $request->validated('unit'),
             'min_order' => $request->validated('min_order', 1),
             'stock' => $request->validated('stock'),
-            'image_url' => $request->validated('image_url'),
+            'image_url' => $imageUrl,
             'is_available' => $request->validated('is_available', true),
         ]);
 
@@ -126,6 +133,19 @@ class ProductController extends Controller
         Gate::authorize('update', $product);
 
         $data = $request->validated();
+
+        if ($request->hasFile('image')) {
+            if ($product->image_url) {
+                $oldPath = Str::after($product->image_url, '/storage/');
+                if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
+
+            $path = $request->file('image')->store('products', 'public');
+            $data['image_url'] = Storage::disk('public')->url($path);
+        }
+        unset($data['image']);
 
         if (isset($data['name']) && $data['name'] !== $product->name) {
             $data['slug'] = $this->generateUniqueSlug($data['name'], $product->id);
