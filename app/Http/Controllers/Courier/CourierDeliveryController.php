@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Courier;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Enums\PickupStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Courier\UpdateDeliveryStatusRequest;

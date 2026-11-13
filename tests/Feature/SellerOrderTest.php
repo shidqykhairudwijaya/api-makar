@@ -130,4 +130,51 @@ class SellerOrderTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    public function test_seller_can_mark_item_as_ready(): void
+    {
+        $seller = User::factory()->seller()->create();
+        $item = OrderItem::factory()->create([
+            'seller_id' => $seller->id,
+            'pickup_status' => PickupStatus::Waiting,
+        ]);
+
+        Sanctum::actingAs($seller);
+
+        $response = $this->patchJson("/api/seller/order-items/{$item->id}/status", [
+            'pickup_status' => 'ready',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.pickup_status', 'ready');
+
+        $item->refresh();
+        $this->assertSame(PickupStatus::Ready, $item->pickup_status);
+    }
+
+    public function test_order_auto_cancelled_when_all_items_become_out_of_stock(): void
+    {
+        $seller = User::factory()->seller()->create();
+        $order = Order::factory()->create(['order_status' => OrderStatus::Confirmed]);
+
+        $item1 = OrderItem::factory()->create([
+            'order_id' => $order->id,
+            'seller_id' => $seller->id,
+            'pickup_status' => PickupStatus::Waiting,
+        ]);
+
+        Sanctum::actingAs($seller);
+
+        // Mark sole item as out_of_stock -> whole order must auto-cancel
+        $response = $this->patchJson("/api/seller/order-items/{$item1->id}/status", [
+            'pickup_status' => 'out_of_stock',
+        ]);
+
+        $response->assertStatus(200);
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::Cancelled, $order->order_status);
+        $this->assertNotNull($order->cancelled_at);
+        $this->assertStringContainsString('stok kosong', strtolower((string) $order->cancellation_reason));
+    }
 }
