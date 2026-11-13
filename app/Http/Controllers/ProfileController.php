@@ -83,6 +83,12 @@ class ProfileController extends Controller
             'password' => Hash::make($request->validated('password')),
         ]);
 
+        // Security: Revoke all other active sessions on other devices
+        $currentTokenId = $user->currentAccessToken()?->id;
+        if ($currentTokenId) {
+            $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+        }
+
         return response()->json([
             'message' => 'Password berhasil diperbarui.',
         ]);

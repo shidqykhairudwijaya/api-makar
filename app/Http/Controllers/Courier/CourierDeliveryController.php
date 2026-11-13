@@ -133,9 +133,29 @@ class CourierDeliveryController extends Controller
             ], 403);
         }
 
-        $orderItem->update([
-            'pickup_status' => $request->validated('pickup_status'),
-        ]);
+        $pickupStatus = $request->validated('pickup_status');
+
+        DB::transaction(function () use ($orderItem, $order, $pickupStatus): void {
+            $orderItem->update([
+                'pickup_status' => $pickupStatus,
+            ]);
+
+            // Auto-cancel order if all items in the order become out of stock
+            if ($pickupStatus === PickupStatus::OutOfStock->value && $order && $order->order_status !== OrderStatus::Cancelled) {
+                $hasAvailable = $order->items()
+                    ->where('id', '!=', $orderItem->id)
+                    ->where('pickup_status', '!=', PickupStatus::OutOfStock->value)
+                    ->exists();
+
+                if (! $hasAvailable) {
+                    $order->update([
+                        'order_status' => OrderStatus::Cancelled,
+                        'cancelled_at' => now(),
+                        'cancellation_reason' => 'Dibatalkan otomatis: seluruh komoditas pesanan stok kosong di pasar.',
+                    ]);
+                }
+            }
+        });
 
         $orderItem->load(['seller.profile', 'product']);
 

@@ -12,6 +12,7 @@ use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\DeliveryCalculatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -131,7 +132,18 @@ class OrderController extends Controller
         }
 
         $subtotalProducts = $cartItems->sum(fn ($item) => (int) ($item->quantity * ($item->product?->price ?? 0)));
-        $deliveryFee = (int) ($request->validated('delivery_fee') ?? 20000);
+
+        // Server-side dynamic calculation of delivery fee based on Karawang GPS coordinates & commodity weight
+        $destLat = isset($addressSnapshot['latitude']) && $addressSnapshot['latitude'] !== null
+            ? (float) $addressSnapshot['latitude']
+            : -6.3262; // Default Karawang
+        $destLng = isset($addressSnapshot['longitude']) && $addressSnapshot['longitude'] !== null
+            ? (float) $addressSnapshot['longitude']
+            : 107.3045;
+
+        $calcService = app(DeliveryCalculatorService::class);
+        $feeCalculation = $calcService->calculate($destLat, $destLng, $cartItems);
+        $deliveryFee = $feeCalculation['total_delivery_fee'];
         $totalAmount = $subtotalProducts + $deliveryFee;
 
         $orderNumber = $this->generateUniqueOrderNumber();

@@ -10,9 +10,11 @@ use App\Http\Resources\OrderItemResource;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SellerOrderController extends Controller
 {
@@ -26,7 +28,11 @@ class SellerOrderController extends Controller
 
         $query = Order::query()
             ->whereHas('items', fn ($q) => $q->where('seller_id', $seller->id))
-            ->with(['buyer.profile', 'items.seller.profile', 'courier.profile'])
+            ->with([
+                'buyer.profile',
+                'items' => fn ($q) => $q->where('seller_id', $seller->id)->with('product'),
+                'courier.profile',
+            ])
             ->latest('ordered_at');
 
         if ($request->filled('order_status')) {
@@ -75,9 +81,32 @@ class SellerOrderController extends Controller
             ], 403);
         }
 
-        $orderItem->update([
-            'pickup_status' => $request->validated('pickup_status'),
-        ]);
+        $pickupStatus = $request->validated('pickup_status');
+
+        DB::transaction(function () use ($orderItem, $pickupStatus): void {
+            $orderItem->update([
+                'pickup_status' => $pickupStatus,
+            ]);
+
+            // Auto-cancel order if all items in the order become out of stock
+            if ($pickupStatus === PickupStatus::OutOfStock->value) {
+                $order = $orderItem->order;
+                if ($order && $order->order_status !== OrderStatus::Cancelled) {
+                    $hasAvailable = $order->items()
+                        ->where('id', '!=', $orderItem->id)
+                        ->where('pickup_status', '!=', PickupStatus::OutOfStock->value)
+                        ->exists();
+
+                    if (! $hasAvailable) {
+                        $order->update([
+                            'order_status' => OrderStatus::Cancelled,
+                            'cancelled_at' => now(),
+                            'cancellation_reason' => 'Dibatalkan otomatis: seluruh komoditas pesanan stok kosong di pasar.',
+                        ]);
+                    }
+                }
+            }
+        });
 
         $orderItem->load(['seller.profile', 'product', 'order']);
 
