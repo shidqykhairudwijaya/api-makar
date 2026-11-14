@@ -30,6 +30,7 @@ Route::prefix('auth')->group(function () {
 
 // Delivery Calculation (Karawang Navigation & Weight Algorithm)
 Route::post('delivery/calculate-fee', [DeliveryController::class, 'calculateFee']);
+Route::get('delivery/search-location', [DeliveryController::class, 'searchLocation']);
 
 // Category Routes (Public)
 Route::get('categories', [CategoryController::class, 'index']);
