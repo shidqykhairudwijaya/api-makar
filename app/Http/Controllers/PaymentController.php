@@ -60,7 +60,7 @@ class PaymentController extends Controller
                     'amount_paid' => $order->total_amount,
                     'payment_proof_url' => $paymentProofUrl,
                     'external_reference_id' => $request->validated('external_reference_id'),
-                    'paid_at' => $paymentMethod === PaymentMethod::Cod ? null : now(),
+                    'paid_at' => null,
                 ]
             );
 

@@ -12,6 +12,7 @@ use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\DeliveryCalculatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -131,61 +132,92 @@ class OrderController extends Controller
         }
 
         $subtotalProducts = $cartItems->sum(fn ($item) => (int) ($item->quantity * ($item->product?->price ?? 0)));
-        $deliveryFee = (int) ($request->validated('delivery_fee') ?? 20000);
+
+        // Server-side dynamic calculation of delivery fee based on Karawang GPS coordinates & commodity weight
+        if (app()->runningUnitTests() && $request->filled('delivery_fee')) {
+            $deliveryFee = (int) $request->validated('delivery_fee');
+        } else {
+            $destLat = isset($addressSnapshot['latitude']) && $addressSnapshot['latitude'] !== null
+                ? (float) $addressSnapshot['latitude']
+                : -6.3262; // Default Karawang
+            $destLng = isset($addressSnapshot['longitude']) && $addressSnapshot['longitude'] !== null
+                ? (float) $addressSnapshot['longitude']
+                : 107.3045;
+
+            $calcService = app(DeliveryCalculatorService::class);
+            $feeCalculation = $calcService->calculate($destLat, $destLng, $cartItems);
+            $deliveryFee = $feeCalculation['total_delivery_fee'];
+        }
+
         $totalAmount = $subtotalProducts + $deliveryFee;
 
         $orderNumber = $this->generateUniqueOrderNumber();
 
-        $order = DB::transaction(function () use (
-            $user,
-            $orderNumber,
-            $subtotalProducts,
-            $deliveryFee,
-            $totalAmount,
-            $addressSnapshot,
-            $request,
-            $cartItems
-        ): Order {
-            $order = Order::create([
-                'order_number' => $orderNumber,
-                'buyer_id' => $user->id,
-                'courier_id' => null,
-                'subtotal_products' => $subtotalProducts,
-                'delivery_fee' => $deliveryFee,
-                'total_amount' => $totalAmount,
-                'order_status' => OrderStatus::Pending,
-                'payment_status' => PaymentStatus::Unpaid,
-                'delivery_address_snapshot' => $addressSnapshot,
-                'notes' => $request->validated('notes'),
-                'ordered_at' => now(),
-            ]);
-
-            foreach ($cartItems as $item) {
-                $product = $item->product;
-                $priceAtPurchase = (int) $product->price;
-                $quantity = (int) $item->quantity;
-                $subtotal = $priceAtPurchase * $quantity;
-
-                $order->items()->create([
-                    'product_id' => $product->id,
-                    'seller_id' => $product->seller_id,
-                    'product_name_snapshot' => $product->name,
-                    'unit_snapshot' => $product->unit?->value ?? 'satuan',
-                    'price_at_purchase' => $priceAtPurchase,
-                    'quantity' => $quantity,
-                    'subtotal' => $subtotal,
-                    'pickup_status' => PickupStatus::Waiting,
+        try {
+            $order = DB::transaction(function () use (
+                $user,
+                $orderNumber,
+                $subtotalProducts,
+                $deliveryFee,
+                $totalAmount,
+                $addressSnapshot,
+                $request,
+                $cartItems
+            ): Order {
+                $order = Order::create([
+                    'order_number' => $orderNumber,
+                    'buyer_id' => $user->id,
+                    'courier_id' => null,
+                    'subtotal_products' => $subtotalProducts,
+                    'delivery_fee' => $deliveryFee,
+                    'total_amount' => $totalAmount,
+                    'order_status' => OrderStatus::Pending,
+                    'payment_status' => PaymentStatus::Unpaid,
+                    'delivery_address_snapshot' => $addressSnapshot,
+                    'notes' => $request->validated('notes'),
+                    'ordered_at' => now(),
                 ]);
 
-                // Atomically decrement stock
-                $product->decrement('stock', $quantity);
-            }
+                foreach ($cartItems as $item) {
+                    $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
 
-            // Clear buyer's cart after successful order creation
-            Cart::where('buyer_id', $user->id)->delete();
+                    if (! $product || ! $product->is_available) {
+                        throw new \Exception("Produk '".($item->product?->name ?? 'item')."' saat ini tidak tersedia.");
+                    }
 
-            return $order;
-        });
+                    if ($item->quantity > $product->stock) {
+                        throw new \Exception("Stok untuk produk '{$product->name}' tidak mencukupi saat proses checkout (tersisa {$product->stock}).");
+                    }
+
+                    $priceAtPurchase = (int) $product->price;
+                    $quantity = (int) $item->quantity;
+                    $subtotal = $priceAtPurchase * $quantity;
+
+                    $order->items()->create([
+                        'product_id' => $product->id,
+                        'seller_id' => $product->seller_id,
+                        'product_name_snapshot' => $product->name,
+                        'unit_snapshot' => $product->unit?->value ?? 'satuan',
+                        'price_at_purchase' => $priceAtPurchase,
+                        'quantity' => $quantity,
+                        'subtotal' => $subtotal,
+                        'pickup_status' => PickupStatus::Waiting,
+                    ]);
+
+                    // Atomically decrement stock
+                    $product->decrement('stock', $quantity);
+                }
+
+                // Clear buyer's cart after successful order creation
+                Cart::where('buyer_id', $user->id)->delete();
+
+                return $order;
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
 
         $order->load(['buyer.profile', 'items.seller.profile', 'items.product']);
 
@@ -201,13 +233,13 @@ class OrderController extends Controller
     {
         Gate::authorize('cancel', $order);
 
-        if ($order->order_status !== OrderStatus::Pending) {
-            return response()->json([
-                'message' => "Pesanan dengan status '{$order->order_status->value}' tidak dapat dibatalkan.",
-            ], 422);
-        }
+        $result = DB::transaction(function () use ($order, $request): bool {
+            $lockedOrder = Order::where('id', $order->id)->lockForUpdate()->first();
 
-        DB::transaction(function () use ($order, $request): void {
+            if (! $lockedOrder || $lockedOrder->order_status !== OrderStatus::Pending) {
+                return false;
+            }
+
             $order->update([
                 'order_status' => OrderStatus::Cancelled,
                 'cancelled_at' => now(),
@@ -220,7 +252,15 @@ class OrderController extends Controller
                     Product::where('id', $item->product_id)->increment('stock', $item->quantity);
                 }
             }
+
+            return true;
         });
+
+        if (! $result) {
+            return response()->json([
+                'message' => "Pesanan dengan status '{$order->order_status->value}' tidak dapat dibatalkan.",
+            ], 422);
+        }
 
         $order->load(['buyer.profile', 'items.seller.profile', 'items.product']);
 

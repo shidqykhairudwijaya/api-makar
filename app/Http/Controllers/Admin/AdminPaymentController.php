@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Payment\VerifyPaymentRequest;
 use App\Http\Resources\PaymentResource;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -52,37 +53,51 @@ class AdminPaymentController extends Controller
         $admin = $request->user();
         $action = $request->validated('action');
 
-        $message = DB::transaction(function () use ($payment, $admin, $action, $request): string {
-            $order = $payment->order;
+        try {
+            $message = DB::transaction(function () use ($payment, $admin, $action, $request): string {
+                $order = Order::where('id', $payment->order_id)->lockForUpdate()->first();
 
-            if ($action === 'approve') {
+                if (! $order) {
+                    throw new \Exception('Pesanan tidak ditemukan.');
+                }
+
+                if ($order->order_status === OrderStatus::Cancelled) {
+                    throw new \Exception('Pesanan telah dibatalkan, pembayaran tidak dapat disetujui.');
+                }
+
+                if ($action === 'approve') {
+                    $payment->update([
+                        'verified_by' => $admin->id,
+                        'paid_at' => now(),
+                    ]);
+
+                    $order->update([
+                        'payment_status' => PaymentStatus::Paid,
+                        'order_status' => OrderStatus::Confirmed,
+                    ]);
+
+                    return 'Pembayaran berhasil diverifikasi dan disetujui.';
+                }
+
+                // Reject action
+                $reason = $request->validated('rejection_reason');
+
                 $payment->update([
-                    'verified_by' => $admin->id,
-                    'paid_at' => now(),
+                    'verified_by' => null,
                 ]);
 
                 $order->update([
-                    'payment_status' => PaymentStatus::Paid,
-                    'order_status' => OrderStatus::Confirmed,
+                    'payment_status' => PaymentStatus::Unpaid,
+                    'notes' => "Verifikasi pembayaran ditolak: {$reason}",
                 ]);
 
-                return 'Pembayaran berhasil diverifikasi dan disetujui.';
-            }
-
-            // Reject action
-            $reason = $request->validated('rejection_reason');
-
-            $payment->update([
-                'verified_by' => null,
-            ]);
-
-            $order->update([
-                'payment_status' => PaymentStatus::Unpaid,
-                'notes' => "Verifikasi pembayaran ditolak: {$reason}",
-            ]);
-
-            return 'Pembayaran telah ditolak.';
-        });
+                return 'Pembayaran telah ditolak.';
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
 
         $payment->load(['verifier', 'order.buyer.profile']);
 

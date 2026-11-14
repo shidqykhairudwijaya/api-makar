@@ -116,13 +116,13 @@ class AdminOrderController extends Controller
      */
     public function cancel(AdminCancelOrderRequest $request, Order $order): JsonResponse
     {
-        if ($order->order_status === OrderStatus::Cancelled) {
-            return response()->json([
-                'message' => 'Pesanan ini sudah dibatalkan sebelumnya.',
-            ], 422);
-        }
+        $result = DB::transaction(function () use ($order, $request): bool {
+            $lockedOrder = Order::where('id', $order->id)->lockForUpdate()->first();
 
-        DB::transaction(function () use ($order, $request): void {
+            if (! $lockedOrder || $lockedOrder->order_status === OrderStatus::Cancelled) {
+                return false;
+            }
+
             $reason = $request->validated('reason');
 
             $order->update([
@@ -136,7 +136,15 @@ class AdminOrderController extends Controller
                     Product::where('id', $item->product_id)->increment('stock', $item->quantity);
                 }
             }
+
+            return true;
         });
+
+        if (! $result) {
+            return response()->json([
+                'message' => 'Pesanan ini sudah dibatalkan sebelumnya.',
+            ], 422);
+        }
 
         $order->load(['buyer.profile', 'items.seller.profile', 'courier.profile', 'payment']);
 

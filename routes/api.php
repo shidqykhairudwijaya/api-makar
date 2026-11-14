@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\Courier\CourierDeliveryController;
+use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
@@ -16,16 +17,21 @@ use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// Auth Routes
+// Auth Routes (Hardened with Rate Limiting)
 Route::prefix('auth')->group(function () {
-    Route::post('register', [AuthController::class, 'register']);
-    Route::post('login', [AuthController::class, 'login']);
+    Route::post('register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
     });
 });
+
+// Delivery Calculation (Karawang Navigation & Weight Algorithm)
+Route::post('delivery/calculate-fee', [DeliveryController::class, 'calculateFee']);
+Route::get('delivery/search-location', [DeliveryController::class, 'searchLocation']);
+Route::get('delivery/detect-location', [DeliveryController::class, 'detectLocation']);
 
 // Category Routes (Public)
 Route::get('categories', [CategoryController::class, 'index']);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Courier;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Enums\PickupStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Courier\UpdateDeliveryStatusRequest;
@@ -89,12 +90,26 @@ class CourierDeliveryController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($order, $courier): void {
+        $claimed = DB::transaction(function () use ($order, $courier): bool {
+            $locked = Order::where('id', $order->id)->lockForUpdate()->first();
+
+            if (! $locked || $locked->courier_id !== null || $locked->order_status !== OrderStatus::Confirmed) {
+                return false;
+            }
+
             $order->update([
                 'courier_id' => $courier->id,
                 'order_status' => OrderStatus::PickingUp,
             ]);
+
+            return true;
         });
+
+        if (! $claimed) {
+            return response()->json([
+                'message' => 'Pesanan ini sudah diambil oleh kurir lain.',
+            ], 422);
+        }
 
         $order->load(['buyer.profile', 'items.seller.profile', 'items.product']);
 
@@ -119,9 +134,29 @@ class CourierDeliveryController extends Controller
             ], 403);
         }
 
-        $orderItem->update([
-            'pickup_status' => $request->validated('pickup_status'),
-        ]);
+        $pickupStatus = $request->validated('pickup_status');
+
+        DB::transaction(function () use ($orderItem, $order, $pickupStatus): void {
+            $orderItem->update([
+                'pickup_status' => $pickupStatus,
+            ]);
+
+            // Auto-cancel order if all items in the order become out of stock
+            if ($pickupStatus === PickupStatus::OutOfStock->value && $order && $order->order_status !== OrderStatus::Cancelled) {
+                $hasAvailable = $order->items()
+                    ->where('id', '!=', $orderItem->id)
+                    ->where('pickup_status', '!=', PickupStatus::OutOfStock->value)
+                    ->exists();
+
+                if (! $hasAvailable) {
+                    $order->update([
+                        'order_status' => OrderStatus::Cancelled,
+                        'cancelled_at' => now(),
+                        'cancellation_reason' => 'Dibatalkan otomatis: seluruh komoditas pesanan stok kosong di pasar.',
+                    ]);
+                }
+            }
+        });
 
         $orderItem->load(['seller.profile', 'product']);
 
