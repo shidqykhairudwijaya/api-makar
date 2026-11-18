@@ -49,7 +49,7 @@ class SellerOrderController extends Controller
 
         $items = OrderItem::query()
             ->where('seller_id', $seller->id)
-            ->where('pickup_status', PickupStatus::Waiting)
+            ->whereIn('pickup_status', [PickupStatus::Waiting, PickupStatus::Ready])
             ->whereHas('order', fn ($q) => $q->whereIn('order_status', [
                 OrderStatus::Confirmed,
                 OrderStatus::PickingUp,

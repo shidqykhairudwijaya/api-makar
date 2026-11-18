@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\Courier\CourierDeliveryController;
+use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
@@ -27,8 +28,16 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// Category Routes (Public)
+// Category Routes
 Route::get('categories', [CategoryController::class, 'index']);
+Route::post('categories', [CategoryController::class, 'store'])->middleware(['auth:sanctum', 'role:admin,seller']);
+
+// Delivery & Location Routes (Karawang Logistics)
+Route::prefix('delivery')->group(function () {
+    Route::post('calculate-fee', [DeliveryController::class, 'calculateFee']);
+    Route::get('search-location', [DeliveryController::class, 'searchLocation']);
+    Route::get('detect-location', [DeliveryController::class, 'detectLocation']);
+});
 
 // Product Routes (Public)
 Route::get('products', [ProductController::class, 'index']);
@@ -75,8 +84,12 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
 
     // Users Management
     Route::get('admin/users', [AdminUserController::class, 'index']);
+    Route::post('admin/users', [AdminUserController::class, 'store']);
     Route::get('admin/users/{user}', [AdminUserController::class, 'show']);
     Route::patch('admin/users/{user}/status', [AdminUserController::class, 'updateStatus']);
+
+    // Categories Management
+    Route::post('admin/categories', [CategoryController::class, 'store']);
 });
 
 // Order Detail Route (Protected - Policy based access)

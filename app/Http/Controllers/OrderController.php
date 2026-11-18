@@ -136,56 +136,77 @@ class OrderController extends Controller
 
         $orderNumber = $this->generateUniqueOrderNumber();
 
-        $order = DB::transaction(function () use (
-            $user,
-            $orderNumber,
-            $subtotalProducts,
-            $deliveryFee,
-            $totalAmount,
-            $addressSnapshot,
-            $request,
-            $cartItems
-        ): Order {
-            $order = Order::create([
-                'order_number' => $orderNumber,
-                'buyer_id' => $user->id,
-                'courier_id' => null,
-                'subtotal_products' => $subtotalProducts,
-                'delivery_fee' => $deliveryFee,
-                'total_amount' => $totalAmount,
-                'order_status' => OrderStatus::Pending,
-                'payment_status' => PaymentStatus::Unpaid,
-                'delivery_address_snapshot' => $addressSnapshot,
-                'notes' => $request->validated('notes'),
-                'ordered_at' => now(),
-            ]);
-
-            foreach ($cartItems as $item) {
-                $product = $item->product;
-                $priceAtPurchase = (int) $product->price;
-                $quantity = (int) $item->quantity;
-                $subtotal = $priceAtPurchase * $quantity;
-
-                $order->items()->create([
-                    'product_id' => $product->id,
-                    'seller_id' => $product->seller_id,
-                    'product_name_snapshot' => $product->name,
-                    'unit_snapshot' => $product->unit?->value ?? 'satuan',
-                    'price_at_purchase' => $priceAtPurchase,
-                    'quantity' => $quantity,
-                    'subtotal' => $subtotal,
-                    'pickup_status' => PickupStatus::Waiting,
+        try {
+            $order = DB::transaction(function () use (
+                $user,
+                $orderNumber,
+                $subtotalProducts,
+                $deliveryFee,
+                $totalAmount,
+                $addressSnapshot,
+                $request,
+                $cartItems
+            ): Order {
+                $order = Order::create([
+                    'order_number' => $orderNumber,
+                    'buyer_id' => $user->id,
+                    'courier_id' => null,
+                    'subtotal_products' => $subtotalProducts,
+                    'delivery_fee' => $deliveryFee,
+                    'total_amount' => $totalAmount,
+                    'order_status' => OrderStatus::Pending,
+                    'payment_status' => PaymentStatus::Unpaid,
+                    'delivery_address_snapshot' => $addressSnapshot,
+                    'notes' => $request->validated('notes'),
+                    'ordered_at' => now(),
                 ]);
 
-                // Atomically decrement stock
-                $product->decrement('stock', $quantity);
-            }
+                foreach ($cartItems as $item) {
+                    /** @var Product $product */
+                    $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
 
-            // Clear buyer's cart after successful order creation
-            Cart::where('buyer_id', $user->id)->delete();
+                    if (! $product || ! $product->is_available) {
+                        throw new \DomainException("Produk '".($product?->name ?? 'item')."' saat ini tidak tersedia untuk dipesan.");
+                    }
 
-            return $order;
-        });
+                    if ($item->quantity < $product->min_order) {
+                        $unitName = $product->unit?->value ?? 'satuan';
+                        throw new \DomainException("Jumlah pesanan untuk '{$product->name}' kurang dari batas minimum pembelian ({$product->min_order} {$unitName}).");
+                    }
+
+                    if ($item->quantity > $product->stock) {
+                        throw new \DomainException("Stok untuk produk '{$product->name}' tidak mencukupi (tersisa {$product->stock}).");
+                    }
+
+                    $priceAtPurchase = (int) $product->price;
+                    $quantity = (int) $item->quantity;
+                    $subtotal = $priceAtPurchase * $quantity;
+
+                    $order->items()->create([
+                        'product_id' => $product->id,
+                        'seller_id' => $product->seller_id,
+                        'product_name_snapshot' => $product->name,
+                        'unit_snapshot' => $product->unit?->value ?? 'satuan',
+                        'price_at_purchase' => $priceAtPurchase,
+                        'quantity' => $quantity,
+                        'subtotal' => $subtotal,
+                        'pickup_status' => PickupStatus::Waiting,
+                    ]);
+
+                    // Atomically decrement stock
+                    $product->decrement('stock', $quantity);
+                }
+
+                // Clear buyer's cart after successful order creation
+                Cart::where('buyer_id', $user->id)->delete();
+
+                return $order;
+            });
+        } catch (\DomainException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
 
         $order->load(['buyer.profile', 'items.seller.profile', 'items.product']);
 

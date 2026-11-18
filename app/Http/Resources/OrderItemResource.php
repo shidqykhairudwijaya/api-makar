@@ -33,6 +33,7 @@ class OrderItemResource extends JsonResource
             'pickup_status' => $this->pickup_status?->value ?? $this->pickup_status,
             'seller' => new UserResource($this->whenLoaded('seller')),
             'product' => new ProductResource($this->whenLoaded('product')),
+            'order' => new OrderResource($this->whenLoaded('order')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

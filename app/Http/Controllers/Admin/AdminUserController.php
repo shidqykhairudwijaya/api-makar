@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminCreateUserRequest;
 use App\Http\Requests\Admin\UpdateUserStatusRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
@@ -47,6 +48,45 @@ class AdminUserController extends Controller
         $users = $query->paginate($perPage);
 
         return UserResource::collection($users)->response();
+    }
+
+    /**
+     * Register a new user account (buyer, seller, courier, admin) along with their profile.
+     */
+    public function store(AdminCreateUserRequest $request): JsonResponse
+    {
+        $user = DB::transaction(function () use ($request): User {
+            $user = User::create([
+                'name' => $request->validated('name'),
+                'phone' => $request->validated('phone'),
+                'email' => $request->validated('email'),
+                'password' => $request->validated('password'),
+                'role' => $request->validated('role'),
+                'is_active' => true,
+            ]);
+
+            $profileData = array_filter([
+                'store_name' => $request->validated('store_name'),
+                'market_name' => $request->validated('market_name'),
+                'block_number' => $request->validated('block_number'),
+                'full_address' => $request->validated('full_address'),
+                'latitude' => $request->validated('latitude'),
+                'longitude' => $request->validated('longitude'),
+            ], fn ($val) => $val !== null && $val !== '');
+
+            if (! empty($profileData)) {
+                $user->profile()->create($profileData);
+            }
+
+            return $user;
+        });
+
+        $user->load('profile');
+
+        return response()->json([
+            'message' => 'Akun pengguna baru berhasil didaftarkan.',
+            'data' => new UserResource($user),
+        ], 201);
     }
 
     /**

@@ -25,6 +25,8 @@ class UserResource extends JsonResource
             'phone' => $this->phone,
             'role' => $this->role?->value ?? $this->role,
             'is_active' => (bool) $this->is_active,
+            'image' => null,
+            'avatar' => null,
             'profile' => new UserProfileResource($this->whenLoaded('profile')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

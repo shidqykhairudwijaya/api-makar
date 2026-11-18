@@ -90,7 +90,38 @@ class SellerOrderTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $itemWaiting->id);
+            ->assertJsonPath('data.0.id', $itemWaiting->id)
+            ->assertJsonPath('data.0.order.order_number', $order1->order_number);
+    }
+
+    public function test_seller_can_update_item_status_to_ready_and_remains_in_incoming_items(): void
+    {
+        $seller = User::factory()->seller()->create();
+        $order = Order::factory()->create(['order_status' => OrderStatus::Confirmed]);
+        $item = OrderItem::factory()->create([
+            'order_id' => $order->id,
+            'seller_id' => $seller->id,
+            'pickup_status' => PickupStatus::Waiting,
+        ]);
+
+        Sanctum::actingAs($seller);
+
+        $response = $this->patchJson("/api/seller/order-items/{$item->id}/status", [
+            'pickup_status' => 'ready',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('message', 'Status komoditas berhasil diperbarui.')
+            ->assertJsonPath('data.pickup_status', 'ready');
+
+        $item->refresh();
+        $this->assertSame(PickupStatus::Ready, $item->pickup_status);
+
+        // Verify it still appears in incoming-items so seller can monitor readiness before courier pickup
+        $incomingRes = $this->getJson('/api/seller/incoming-items');
+        $incomingRes->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.pickup_status', 'ready');
     }
 
     public function test_seller_can_update_their_own_item_status(): void

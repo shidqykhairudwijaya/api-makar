@@ -30,7 +30,7 @@ class CourierDeliveryController extends Controller
         $scope = $request->query('scope', 'my_deliveries');
 
         $query = Order::query()
-            ->with(['buyer.profile', 'items.seller.profile', 'payment'])
+            ->with(['buyer.profile', 'items.seller.profile', 'items.product', 'payment'])
             ->latest('ordered_at');
 
         if ($scope === 'available') {
@@ -77,25 +77,35 @@ class CourierDeliveryController extends Controller
         /** @var User $courier */
         $courier = auth()->user();
 
-        if ($order->courier_id !== null) {
+        try {
+            DB::transaction(function () use ($order, $courier): void {
+                /** @var Order $lockedOrder */
+                $lockedOrder = Order::where('id', $order->id)->lockForUpdate()->first();
+
+                if (! $lockedOrder) {
+                    throw new \DomainException('Pesanan tidak ditemukan.');
+                }
+
+                if ($lockedOrder->courier_id !== null) {
+                    throw new \DomainException('Pesanan ini sudah diambil oleh kurir lain.');
+                }
+
+                if ($lockedOrder->order_status !== OrderStatus::Confirmed) {
+                    throw new \DomainException("Pesanan belum dapat diambil (status saat ini: {$lockedOrder->order_status->value}).");
+                }
+
+                $lockedOrder->update([
+                    'courier_id' => $courier->id,
+                    'order_status' => OrderStatus::PickingUp,
+                ]);
+            });
+        } catch (\DomainException $e) {
             return response()->json([
-                'message' => 'Pesanan ini sudah diambil oleh kurir lain.',
+                'message' => $e->getMessage(),
             ], 422);
         }
 
-        if ($order->order_status !== OrderStatus::Confirmed) {
-            return response()->json([
-                'message' => "Pesanan belum dapat diambil (status saat ini: {$order->order_status->value}).",
-            ], 422);
-        }
-
-        DB::transaction(function () use ($order, $courier): void {
-            $order->update([
-                'courier_id' => $courier->id,
-                'order_status' => OrderStatus::PickingUp,
-            ]);
-        });
-
+        $order->refresh();
         $order->load(['buyer.profile', 'items.seller.profile', 'items.product']);
 
         return response()->json([

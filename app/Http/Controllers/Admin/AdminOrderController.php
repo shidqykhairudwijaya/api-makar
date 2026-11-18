@@ -122,6 +122,12 @@ class AdminOrderController extends Controller
             ], 422);
         }
 
+        if ($order->order_status === OrderStatus::Completed) {
+            return response()->json([
+                'message' => 'Pesanan yang sudah selesai (completed) tidak dapat dibatalkan.',
+            ], 422);
+        }
+
         DB::transaction(function () use ($order, $request): void {
             $reason = $request->validated('reason');
 
